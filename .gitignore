@@ -1,0 +1,16 @@
+.venv/
+.DS_Store
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.egg-info/
+data/raw/
+data/processed/
+data/splits/
+data/perturbations/
+reports/
+results/
+experiments/
+.env
+*.log

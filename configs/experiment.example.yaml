@@ -1,0 +1,24 @@
+# Copy to experiment.yaml once research decisions are approved.
+dataset:
+  name: nvidia/HelpSteer2
+  data_dir: preference
+  split: train
+  # TODO: Lock exact source revision; the internal split column distinguishes train and val.
+  revision: null
+preprocessing:
+  raw_votes_field: all_preferences_unprocessed
+  vote_format: helpsteer2 # list of records with strength and justification; verify snapshot
+  min_annotations: null # decide after counting raw votes and stratum availability
+sampling:
+  audit_max_per_stratum: 400 # cap, NOT an assumed achieved count
+  seed: 42
+models:
+  - Qwen/Qwen2.5-0.5B-Instruct
+  - Qwen/Qwen2.5-1.5B-Instruct
+  - Qwen/Qwen2.5-7B-Instruct
+  - Qwen/Qwen2.5-14B-Instruct
+  # TODO: choose precision consistent across main model-size comparison.
+protocol:
+  # TODO: decide tie policy, output method, seeds, and locked prompts.
+  evaluation_seeds: [42, 123, 2026]
+  perturbations: [swap, repeat, neutral_noop, format, content_removal]
