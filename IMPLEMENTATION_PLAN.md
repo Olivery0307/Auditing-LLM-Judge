@@ -12,11 +12,10 @@
 
 1. The starter contents have been placed in `/Users/oliveryang/Desktop/github repo/auditing_llm_judge`.
 2. `cd '/Users/oliveryang/Desktop/github repo/auditing_llm_judge'`
-3. `python3 -m venv .venv && source .venv/bin/activate`
-4. `pip install -e '.[dev]'`
-5. `pytest -q`
-6. `python -m judge_audit.inspect_dataset --dataset nvidia/HelpSteer2 --data-dir preference --split train --limit 2 --out reports/helpsteer_schema.json`
-7. Examine `reports/helpsteer_schema.json` and the actual HF dataset card. **Confirm preference field structure, value meaning, and original split metadata** before running preprocessing.
+3. `uv sync` (uses Python 3.12 from `.python-version`; commit `uv.lock` after the first successful sync).
+4. `uv run pytest -q`
+5. `uv run python -m judge_audit.inspect_dataset --dataset nvidia/HelpSteer2 --data-dir preference --split train --limit 2 --out reports/helpsteer_schema.json`
+6. Examine `reports/helpsteer_schema.json` and the actual HF dataset card. **Confirm preference field structure, value meaning, and original split metadata** before running preprocessing.
 
 See the README for commands. Do not commit raw licensed datasets or credentials.
 

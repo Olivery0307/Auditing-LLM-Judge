@@ -6,17 +6,17 @@ A CPU-first scaffold for the COMS 4995 project. Read [IMPLEMENTATION_PLAN.md](IM
 
 ```bash
 cd '/Users/oliveryang/Desktop/github repo/auditing_llm_judge'
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-pytest -q
-python -m judge_audit.inspect_dataset --dataset nvidia/HelpSteer2 --data-dir preference --split train --limit 2 --out reports/helpsteer_schema.json
+uv sync
+uv run pytest -q
+uv run python -m judge_audit.inspect_dataset --dataset nvidia/HelpSteer2 --data-dir preference --split train --limit 2 --out reports/helpsteer_schema.json
 ```
+
+`uv sync` uses Python 3.12 from `.python-version`, installs the default development group, and creates or updates `.venv`. Commit the generated `uv.lock` after the first successful sync so everyone uses the same resolved versions. Dependency downloads and tests have been deferred for now.
 
 **Review schema JSON before preprocessing.** The [publisher's dataset card](https://huggingface.co/datasets/nvidia/HelpSteer2/blob/main/README.md) shows `all_preferences_unprocessed` as a list of `{strength, justification}` records. Strengths range from -3 to 3; zero is an individual tie. Positive means response 2 is preferred. Confirm these details against the downloaded snapshot and pin its commit SHA before processing. The CLI rejects records that do not match this exact structure.
 
 ```bash
-python -m judge_audit.preprocess \
+uv run python -m judge_audit.preprocess \
   --dataset nvidia/HelpSteer2 --data-dir preference --split train \
   --revision YOUR_40_CHARACTER_COMMIT_SHA \
   --votes-field all_preferences_unprocessed \
@@ -29,7 +29,7 @@ python -m judge_audit.preprocess \
 The preference download's Hugging Face `train` split contains both the publisher's internal `train` and `val` rows, identified by the `split` column. After reviewing counts and duplicates, freeze partitions with a pinned commit SHA:
 
 ```bash
-python -m judge_audit.splits \
+uv run python -m judge_audit.splits \
   --pairs data/processed/helpsteer_pairs.parquet \
   --source-revision YOUR_40_CHARACTER_COMMIT_SHA \
   --out data/splits/helpsteer_manifest.csv
