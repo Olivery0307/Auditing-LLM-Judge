@@ -10,8 +10,8 @@
 
 ## 0. Local setup
 
-1. The starter contents have been placed in `/Users/oliveryang/Desktop/github repo/auditing_llm_judge`.
-2. `cd '/Users/oliveryang/Desktop/github repo/auditing_llm_judge'`
+1. Clone the repository.
+2. Work from the repo root.
 3. `uv sync` (uses Python 3.12 from `.python-version`; commit `uv.lock` after the first successful sync).
 4. `uv run pytest -q`
 5. `uv run python -m judge_audit.inspect_dataset --dataset nvidia/HelpSteer2 --data-dir preference --split train --limit 2 --out reports/helpsteer_schema.json`
@@ -42,6 +42,8 @@ Tools: hashing, pandas, `scikit-learn` if needed; no GPU.
 - Save split manifests with seeds, source revision, counts, and hashes; assert intersections are empty. Starter helpers implement exact disjointness checks, not fuzzy leakage detection.
 
 **Initial split rule:** whitespace-normalized exact prompt groups; source-defined `val`/`validation` is audit only. Inspect semantic near-duplicates and cross-dataset overlaps before experiments.
+
+**Update (2026-11-25, team agreed):** the split is frozen, and near-duplicates were reviewed (31 excluded; none against MT-Bench). The H1–H3 sample is drawn from `train` + `audit`, because those hypotheses test untuned judges that never saw HelpSteer2. LoRA trains on `train`, so H4 tests only on `audit` and MT-Bench, and all tuning uses `development`. This replaces a single untouched audit partition for every hypothesis. Details and partition rules: [DATA.md](DATA.md).
 
 ## 3. Judging harness — 50-pair pilot first
 
@@ -95,10 +97,12 @@ Measure GPU-hours, peak memory, end-to-end throughput/latency, price and assumpt
 
 | Decision | Status | Owner / notes |
 |---|---|---|
-| HelpSteer2 raw vote schema / sign mapping | CARD VERIFIED; SNAPSHOT TODO | Card shows `{strength, justification}`; positive=response 2; zero=tie |
-| Aggregated vs. raw margin and valid annotation counts | TODO APPROVE | Avoid circular definition |
+| HelpSteer2 raw vote schema / sign mapping | VERIFIED (snapshot `990b2711`) | `{strength, justification}`; positive = response 2, matching 99.5% of parseable annotator statements; no zero votes because annotators could not choose a tie |
+| Aggregated vs. raw margin and valid annotation counts | APPROVED | Raw votes only; margin = absolute mean raw vote |
 | Tie/abstention and soft human agreement metric | TODO APPROVE | Include contested pairs |
-| Minimum annotations and stratum sample sizes | TODO COUNT | Report available and selected |
+| Minimum annotations and strata | APPROVED | At least 3 annotators; groups: unanimous margin rounded to 1 / 2 / 3, plus contested. Pool counts in DATA.md |
+| Sample size per group | TODO DECIDE | Ranked list ready (`h1h3_ranking.csv`); pick *k* after the pilot. See OPEN_DECISIONS.md item 1 |
+| Partition use and near-duplicates | APPROVED / DONE | Team agreed 2026-11-25; 31 near-duplicates excluded after manual review |
 | H2 common-support matching | TODO APPROVE | No independent effect without overlap |
 | Exact no-op and formatting transformations | TODO VALIDATE | Both target sides |
 | Model roster / precision across sizes | TODO DECIDE | Scale confounding |
