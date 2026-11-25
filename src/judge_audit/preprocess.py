@@ -6,7 +6,8 @@ from collections import Counter
 from pathlib import Path
 import pandas as pd
 from datasets import load_dataset
-from .core import canonical_pair_id, vote_summary
+from .core import audit_exclusion_reasons, canonical_pair_id, margin_group, parse_turns, vote_summary
+from .splits import normalized_text
 
 
 def main() -> None:
@@ -19,7 +20,10 @@ def main() -> None:
     p.add_argument("--source-split-field", default="split")
     p.add_argument("--vote-format", choices=("helpsteer2", "numeric"), default="helpsteer2")
     p.add_argument("--counts", help="Optional CSV of observed strata; no margin bins are assumed")
-    p.add_argument("--min-annotators", type=int, default=1)
+    p.add_argument("--min-annotators", type=int, default=1,
+                   help="Drop rows below this count from the output; keep at 1 so every pair stays available")
+    p.add_argument("--audit-min-annotators", type=int, default=3,
+                   help="Pairs below this count stay in the output but are marked ineligible for the H1-H3 audit")
     p.add_argument("--strict", action="store_true", help="Stop on first unparseable vote record")
     a = p.parse_args()
     if not re.fullmatch(r"[0-9a-f]{40}", a.revision):
@@ -40,16 +44,30 @@ def main() -> None:
             metrics = vote_summary(row[a.votes_field], vote_format=a.vote_format)
             if metrics["n_annotators"] < a.min_annotators:
                 continue
+            turns = parse_turns(prompt)
+            group = margin_group(json.loads(metrics["raw_votes"]))
+            reasons = audit_exclusion_reasons(
+                n_annotators=metrics["n_annotators"], group=group,
+                identical_responses=normalized_text(r1) == normalized_text(r2),
+                min_annotators=a.audit_min_annotators,
+            )
             records.append({
                 "source_row": index,
+                "dataset_revision": a.revision,
                 "pair_id": canonical_pair_id(prompt, r1, r2),
                 "prompt": prompt,
                 "response_1": r1,
                 "response_2": r2,
+                "turns": json.dumps(turns, ensure_ascii=False),
+                "n_prompt_turns": len(turns),
+                "is_multi_turn": len(turns) > 1,
                 "source_split": row.get(a.source_split_field),
                 "raw_annotations": json.dumps(row[a.votes_field], ensure_ascii=False),
                 "published_preference_strength": row.get("preference_strength"),
                 **metrics,
+                "margin_group": group,
+                "audit_eligible": not reasons,
+                "audit_exclusion_reason": ";".join(reasons),
             })
         except (ValueError, TypeError) as exc:
             if a.strict:
@@ -66,7 +84,7 @@ def main() -> None:
     if a.counts:
         count_path = Path(a.counts)
         count_path.parent.mkdir(parents=True, exist_ok=True)
-        (frame.groupby(["source_split", "n_annotators", "unanimous_raw", "contested_raw", "all_ties_raw"], dropna=False)
+        (frame.groupby(["source_split", "audit_eligible", "margin_group", "n_annotators"], dropna=False)
          .size().rename("count").reset_index().to_csv(count_path, index=False))
     counts = frame.groupby(["unanimous_raw", "contested_raw", "n_annotators"], dropna=False).size()
     report = {
@@ -82,11 +100,19 @@ def main() -> None:
         "published_zero_strength_rows": int((frame.published_preference_strength == 0).sum()),
         "duplicate_canonical_pair_ids": int(frame.pair_id.duplicated().sum()),
         "source_split_counts": {str(k): int(v) for k, v in Counter(frame.source_split.astype(str)).items()},
+        "audit_min_annotators": a.audit_min_annotators,
+        "audit_eligible_rows": int(frame.audit_eligible.sum()),
+        "audit_exclusion_reason_counts": {k: int(v) for k, v in frame.loc[~frame.audit_eligible, "audit_exclusion_reason"].value_counts().items()},
+        "eligible_margin_group_by_source_split": {
+            str(s): {str(g): int(v) for g, v in grp.margin_group.value_counts().sort_index().items()}
+            for s, grp in frame[frame.audit_eligible].groupby("source_split")
+        },
+        "multi_turn_rows": int(frame.is_multi_turn.sum()),
         "stratum_count_by_n_annotators": [
             {"unanimous": bool(u), "contested": bool(c), "n_annotators": int(n), "count": int(v)}
             for (u,c,n),v in counts.items()
         ],
-        "caution": "Raw mean margin is NOT published preference_strength. Zero votes are retained; unanimous requires all votes to have one nonzero sign. No train/eval splits or H2 matching created.",
+        "caution": "Raw mean margin is NOT published preference_strength. Every valid row is kept; audit_eligible marks pairs for the H1-H3 sample. margin_group rounds the unanimous margin half up (1.5 -> 2, 2.5 -> 3). No train/eval splits or H2 matching created.",
     }
     report_path = Path(a.report)
     report_path.parent.mkdir(parents=True, exist_ok=True)

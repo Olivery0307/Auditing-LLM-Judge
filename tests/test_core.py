@@ -47,3 +47,36 @@ def test_disjoint():
     assert_disjoint({"a", "b"}, {"c"})
     with pytest.raises(ValueError):
         assert_disjoint({"a", "b"}, {"b", "c"})
+
+
+def test_margin_group_rounds_half_up():
+    from judge_audit.core import margin_group
+    assert margin_group([1, 1, 1]) == "1"
+    assert margin_group([1, 1, 2]) == "1"       # 1.33
+    assert margin_group([1, 1, 2, 2]) == "2"    # 1.5
+    assert margin_group([1, 2, 2]) == "2"       # 1.67
+    assert margin_group([2, 3]) == "3"          # 2.5
+    assert margin_group([-3, -3, -2]) == "3"    # sign ignored
+    assert margin_group([-1, 1, 1]) == "contested"
+    assert margin_group([0, 1, 0]) is None
+
+
+def test_parse_turns_round_trips_and_fails_closed():
+    from judge_audit.core import parse_turns
+    assert parse_turns("hi") == [{"role": "user", "content": "hi"}]
+    prompt = "q1\n<extra_id_1>Assistant\na1\n<extra_id_1>User\nq2"
+    assert [t["role"] for t in parse_turns(prompt)] == ["user", "assistant", "user"]
+    assert parse_turns(prompt)[-1]["content"] == "q2"
+    with pytest.raises(ValueError):
+        parse_turns("q1\n<extra_id_1>Assistant\na1")          # ends with assistant
+    with pytest.raises(ValueError):
+        parse_turns("q1\n<extra_id_1>User\nq2")                # two user turns in a row
+    with pytest.raises(ValueError):
+        parse_turns("q1\n<extra_id_1>Assistant\n \n<extra_id_1>User\nq2")  # empty turn
+
+
+def test_audit_exclusion_reasons():
+    from judge_audit.core import audit_exclusion_reasons
+    assert audit_exclusion_reasons(n_annotators=3, group="1", identical_responses=False, min_annotators=3) == []
+    assert audit_exclusion_reasons(n_annotators=2, group=None, identical_responses=True, min_annotators=3) == [
+        "fewer_than_3_annotators", "identical_responses", "no_margin_group"]
