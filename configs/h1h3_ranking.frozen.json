@@ -1,0 +1,18 @@
+{
+  "seed": 42,
+  "eligible": "audit_eligible and partition in train, audit",
+  "order": "sha256(seed NUL pair_id) ascending within margin_group",
+  "pairs_sha256": "2b08a83125e36a26bba1236cc174faeae8798050ed1613630539d9d704b11433",
+  "manifest_sha256": "12faa8657b99ec4709251d82deba4ea0cf2c16107187b793315be1d0e06be79a",
+  "counts_by_margin_group": {
+    "1": 1727,
+    "2": 1532,
+    "3": 982,
+    "contested": 3318
+  },
+  "counts_by_partition": {
+    "train": 7147,
+    "audit": 412
+  },
+  "ranking_sha256": "bed1e8fc8a5a429abb661b97a5ad4703f40757ef315fa924ba59cfd4ee1466f6"
+}

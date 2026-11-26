@@ -11,6 +11,12 @@ dependencies = ["datasets>=2.19", "pandas>=2.0", "pyarrow>=14", "numpy>=1.24"]
 
 [dependency-groups]
 dev = ["pytest>=7.4", "ruff>=0.6"]
+model = [
+    "accelerate>=1.0",
+    "peft>=0.13",
+    "torch>=2.4",
+    "transformers>=4.56",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,12 +1,15 @@
 """Pure transformations. All raw preference assumptions are explicit.
 
 The numbers are individual signed preferences, not the publisher's
-aggregated preference_strength. Zero is an individual tie vote.
+aggregated preference_strength. Positive favors response 2. HelpSteer2
+annotators could not choose a tie, so its raw votes contain no zeros; zero
+is still handled for the generic numeric format.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Iterable
 
 
@@ -69,6 +72,68 @@ def vote_summary(raw: object, *, vote_format: str = "helpsteer2") -> dict:
         "vote_share_response_1": negatives / n,
         "vote_share_tie": ties / n,
     }
+
+
+MARGIN_GROUPS = ("1", "2", "3", "contested")
+_TURN_MARKER = re.compile(r"\n<extra_id_1>(User|Assistant)\n")
+
+
+def margin_group(votes: Iterable[int]) -> str | None:
+    """Agreed audit group: 'contested', or a unanimous margin rounded to 1, 2 or 3.
+
+    Rounding is half up (1.5 -> 2, 2.5 -> 3) and uses exact integer arithmetic.
+    Returns None for votes that are neither unanimous nor contested (zero votes).
+    """
+    votes = list(votes)
+    if not votes:
+        raise ValueError("No votes")
+    if any(v > 0 for v in votes) and any(v < 0 for v in votes):
+        return "contested"
+    if not (all(v > 0 for v in votes) or all(v < 0 for v in votes)):
+        return None
+    n, total = len(votes), abs(sum(votes))
+    rounded = (2 * total + n) // (2 * n)  # floor(total / n + 1/2)
+    if rounded not in (1, 2, 3):
+        raise ValueError(f"Unexpected unanimous margin {total}/{n}")
+    return str(rounded)
+
+
+def parse_turns(prompt: str) -> list[dict[str, str]]:
+    """Split a HelpSteer2 prompt into chat turns.
+
+    Earlier turns are joined by '\\n<extra_id_1>Assistant\\n' and
+    '\\n<extra_id_1>User\\n'. Turns must alternate and end with the user. The
+    split must rebuild the prompt exactly, so nothing is silently dropped.
+    """
+    parts = _TURN_MARKER.split(prompt)
+    turns = [{"role": "user", "content": parts[0]}]
+    for role, content in zip(parts[1::2], parts[2::2]):
+        turns.append({"role": role.lower(), "content": content})
+    expected = ["user", "assistant"] * (len(turns) // 2 + 1)
+    if [t["role"] for t in turns] != expected[: len(turns)] or turns[-1]["role"] != "user":
+        raise ValueError("Prompt turns must alternate user/assistant and end with the user")
+    if any(not t["content"].strip() for t in turns):
+        raise ValueError("Empty prompt turn")
+    rebuilt = turns[0]["content"] + "".join(
+        f"\n<extra_id_1>{t['role'].capitalize()}\n{t['content']}" for t in turns[1:]
+    )
+    if rebuilt != prompt:
+        raise ValueError("Prompt turns do not rebuild the original prompt")
+    return turns
+
+
+def audit_exclusion_reasons(
+    *, n_annotators: int, group: str | None, identical_responses: bool, min_annotators: int
+) -> list[str]:
+    """Why a pair cannot enter the H1-H3 audit sample; empty means eligible."""
+    reasons = []
+    if n_annotators < min_annotators:
+        reasons.append(f"fewer_than_{min_annotators}_annotators")
+    if identical_responses:
+        reasons.append("identical_responses")
+    if group is None:
+        reasons.append("no_margin_group")
+    return reasons
 
 
 def original_response_id(label: str, order: tuple[int, int]) -> int:

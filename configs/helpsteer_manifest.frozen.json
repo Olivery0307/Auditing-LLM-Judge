@@ -1,0 +1,18 @@
+{
+  "source_revision": "990b2711a36180dd19d9c94b8627844866f8982a",
+  "pairs_file": "data/processed/helpsteer_pairs.parquet",
+  "pairs_sha256": "2b08a83125e36a26bba1236cc174faeae8798050ed1613630539d9d704b11433",
+  "seed": 42,
+  "dev_fraction": 0.1,
+  "grouping": "exact whitespace-normalized prompt; reviewed near-duplicates excluded",
+  "exclusions_file": "configs/near_duplicate_exclusions.csv",
+  "exclusions_sha256": "6ab7b872359168ada53879d919b067b2488c4794c632eeda4b80b330911fd441",
+  "source_validation_policy": "held-out audit; never train or development",
+  "counts": {
+    "train": 7760,
+    "development": 886,
+    "audit": 448,
+    "excluded": 31
+  },
+  "manifest_sha256": "12faa8657b99ec4709251d82deba4ea0cf2c16107187b793315be1d0e06be79a"
+}

@@ -1,8 +1,9 @@
 """Freeze prompt-grouped HelpSteer2 partitions before creating variants.
 
 The source's internal validation rows are kept as a separate held-out audit
-partition. Exact whitespace-normalized prompts define groups; semantic near
-duplicates still require a separate review.
+partition. Exact whitespace-normalized prompts define groups. Near-duplicate
+prompts confirmed by manual review (see `near_duplicates`) are listed in an
+exclusions file and marked `excluded`; every other assignment is unchanged.
 """
 from __future__ import annotations
 
@@ -58,6 +59,33 @@ def partition_pairs(frame: pd.DataFrame, *, seed: int, dev_fraction: float) -> p
     return result.sort_values("pair_id").reset_index(drop=True)
 
 
+def check_revision(frame: pd.DataFrame, revision: str) -> None:
+    """The pairs file must come from exactly the pinned dataset revision."""
+    if "dataset_revision" not in frame.columns:
+        raise ValueError("Pairs file has no dataset_revision column; rerun preprocess")
+    found = set(frame.dataset_revision.astype(str))
+    if found != {revision}:
+        raise ValueError(f"Pairs file revision {sorted(found)} does not match --source-revision {revision}")
+
+
+def apply_exclusions(result: pd.DataFrame, exclusions: pd.DataFrame) -> pd.DataFrame:
+    """Mark reviewed near-duplicates as excluded. Audit (source validation) pairs are never excluded."""
+    if not {"pair_id", "reason"}.issubset(exclusions.columns):
+        raise ValueError("Exclusions need pair_id and reason columns")
+    if exclusions.pair_id.duplicated().any():
+        raise ValueError("Duplicate pair_id in exclusions")
+    known = result.set_index("pair_id").partition
+    if missing := set(exclusions.pair_id) - set(known.index):
+        raise ValueError(f"{len(missing)} excluded pair IDs are not in the pairs file")
+    if (known.loc[list(exclusions.pair_id)] == "audit").any():
+        raise ValueError("Exclusions may not remove audit (source validation) pairs")
+    result = result.copy()
+    reason = result.pair_id.map(exclusions.set_index("pair_id").reason)
+    result["exclusion_reason"] = reason.fillna("")
+    result.loc[reason.notna(), "partition"] = "excluded"
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pairs", required=True)
@@ -65,11 +93,15 @@ def main() -> None:
     parser.add_argument("--source-revision", required=True, help="Pinned Hugging Face commit SHA")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dev-fraction", type=float, default=0.1)
+    parser.add_argument("--exclusions", help="Reviewed near-duplicate exclusions CSV (pair_id, reason)")
     args = parser.parse_args()
     if not re.fullmatch(r"[0-9a-f]{40}", args.source_revision):
         parser.error("--source-revision must be a 40-character commit SHA")
     pairs = pd.read_parquet(args.pairs)
+    check_revision(pairs, args.source_revision)
     result = partition_pairs(pairs, seed=args.seed, dev_fraction=args.dev_fraction)
+    if args.exclusions:
+        result = apply_exclusions(result, pd.read_csv(args.exclusions))
     out = Path(args.out)
     meta = out.with_suffix(".json")
     if out.exists() or meta.exists():
@@ -82,7 +114,9 @@ def main() -> None:
         "pairs_sha256": hashlib.sha256(Path(args.pairs).read_bytes()).hexdigest(),
         "seed": args.seed,
         "dev_fraction": args.dev_fraction,
-        "grouping": "exact whitespace-normalized prompt; semantic near-duplicates require review",
+        "grouping": "exact whitespace-normalized prompt; reviewed near-duplicates excluded",
+        "exclusions_file": str(args.exclusions) if args.exclusions else None,
+        "exclusions_sha256": hashlib.sha256(Path(args.exclusions).read_bytes()).hexdigest() if args.exclusions else None,
         "source_validation_policy": "held-out audit; never train or development",
         "counts": {str(k): int(v) for k, v in result.partition.value_counts().items()},
         "manifest_sha256": hashlib.sha256(out.read_bytes()).hexdigest(),
