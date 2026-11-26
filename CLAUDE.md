@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-CPU-first scaffold for a COMS 4995 research project auditing LLM-as-a-Judge behavior on HelpSteer2-Preference (position instability, human agreement, formatting bias, model size, LoRA mitigation). `IMPLEMENTATION_PLAN.md` is the source of truth for hypotheses (H1–H4), methodology and the decision log. `DATA.md` documents the prepared data, and `OPEN_DECISIONS.md` lists data-use choices left to the experiment code.
+CPU-first scaffold for a COMS 4995 research project auditing LLM-as-a-Judge behavior on HelpSteer2-Preference (position instability, human agreement, formatting bias, model size, LoRA mitigation). `IMPLEMENTATION_PLAN.md` is the source of truth for hypotheses (H1–H4), methodology and the decision log. `DATA.md` documents the prepared data, and `DECISIONS.md` lists every default the experiment prototypes use.
 
-Data preparation is done and the split is frozen. The judge harness, perturbations, H2 matching, hypothesis tests, LoRA training and MT-Bench transfer are **intentionally absent** until the open decisions are settled. Don't add placeholder implementations, and don't resolve a `TODO` decision (tie policy, sample size, model roster, CI clusters, etc.) on your own by picking a default in code; ask.
+Data preparation is done and the split is frozen. Each experiment has a prototype that a teammate will refine: edits (`perturb`), judging (`items`, `prompts`, `backends`, `judge`), analysis (`analysis`) and LoRA (`lora_data`, `train_lora`). When a prototype needs a new default, choose a sensible one and record it in `DECISIONS.md` with its status (Default / Untested); don't leave decisions only in code.
+
+Model work runs on a GCP GPU, never on the user's laptop: keep local commands light (no model loading or large installs). Use `--backend fake` for local dry runs. The vLLM backend and `train_lora` have not been run yet.
 
 ## Commands
 
@@ -21,7 +23,7 @@ Ruff has no project config, and the scaffold has 5 pre-existing findings under r
 
 ## Data pipeline
 
-Six CLIs run in order: `inspect_dataset`, `preprocess`, `mt_bench`, `near_duplicates`, `splits`, `ranking`. The full commands, pinned revisions and expected hashes are in `DATA.md`. `core.py` holds the pure functions they share.
+Six CLIs prepare the data, in order: `inspect_dataset`, `preprocess`, `mt_bench`, `near_duplicates`, `splits`, `ranking`. The full commands, pinned revisions and expected hashes are in `DATA.md`. `core.py` holds the pure functions they share. Experiment commands are in the README's "Running the experiments" section. Model libraries (torch, transformers, peft) are in the optional `model` dependency group: `uv sync --group model`.
 
 - `preprocess` keeps every valid pair and adds `margin_group`, `audit_eligible`, parsed `turns` and `dataset_revision`. Rows are never deleted for eligibility.
 - `near_duplicates` writes a review CSV with dataset text to `reports/`. Reviewed copies are listed by pair ID in `configs/near_duplicate_exclusions.csv`, which `splits` applies.
@@ -41,5 +43,5 @@ All outputs (`data/`, `reports/`, `results/`, `experiments/`) are git-ignored. `
 
 - **Fail closed:** unexpected vote shapes, malformed turn markers, unpinned or mismatched revisions, duplicate pairs, prompts crossing the publisher's split, excluding an `audit` pair, and existing manifests or rankings all raise. Don't loosen these checks to get data through. (`preprocess` records unparseable rows in its report unless `--strict` is set.)
 - The split manifest and ranking are frozen. Changing them means deleting the files deliberately with the team's agreement. Any derived variant (perturbation, augmentation) inherits its original pair's partition.
-- MT-Bench stays entirely out of training, prompt tuning, edit selection and adapter selection.
+- MT-Bench stays entirely out of training, prompt tuning, edit selection and adapter selection. `judge` refuses a LoRA adapter on the H1–H3 sample, and `lora_data` reads only the `train` and `development` partitions.
 - Do not commit raw dataset text or credentials. Review CSVs and samples in `reports/` contain dataset text.

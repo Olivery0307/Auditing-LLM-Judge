@@ -101,7 +101,7 @@ Measure GPU-hours, peak memory, end-to-end throughput/latency, price and assumpt
 | Aggregated vs. raw margin and valid annotation counts | APPROVED | Raw votes only; margin = absolute mean raw vote |
 | Tie/abstention and soft human agreement metric | TODO APPROVE | Include contested pairs |
 | Minimum annotations and strata | APPROVED | At least 3 annotators; groups: unanimous margin rounded to 1 / 2 / 3, plus contested. Pool counts in DATA.md |
-| Sample size per group | TODO DECIDE | Ranked list ready (`h1h3_ranking.csv`); pick *k* after the pilot. See OPEN_DECISIONS.md item 1 |
+| Sample size per group | TODO DECIDE | Ranked list ready (`h1h3_ranking.csv`); prototype default *k* = 400; confirm after the pilot. See DECISIONS.md |
 | Partition use and near-duplicates | APPROVED / DONE | Team agreed 2026-11-25; 31 near-duplicates excluded after manual review |
 | H2 common-support matching | TODO APPROVE | No independent effect without overlap |
 | Exact no-op and formatting transformations | TODO VALIDATE | Both target sides |

@@ -1,6 +1,6 @@
 # Data guide
 
-How to use the prepared HelpSteer2 and MT-Bench data. Data files are not in Git; rebuild them with the commands at the end and check the hashes. Decisions still open for the experiments are in [OPEN_DECISIONS.md](OPEN_DECISIONS.md).
+How to use the prepared HelpSteer2 and MT-Bench data. Data files are not in Git; rebuild them with the commands at the end and check the hashes. Defaults used by the experiment prototypes are in [DECISIONS.md](DECISIONS.md).
 
 | Source | Revision | License |
 |---|---|---|
@@ -126,7 +126,7 @@ Nothing is filtered. 853 comparisons have only one judgment. Votes have no stren
 ## Limits to keep in mind
 
 - **The publisher removed high-disagreement pairs.** Tasks whose three closest votes spread by more than 2 were dropped (HelpSteer2-Preference paper, Section 2), so many of the strongest disagreements are missing.
-- **Contested pairs with 3 annotators are always `[-1, 1, 1]` or its mirror.** All contested pairs at margin 1 or more have 4 or more annotators. See item 1 in `OPEN_DECISIONS.md`.
+- **Contested pairs with 3 annotators are always `[-1, 1, 1]` or its mirror.** All contested pairs at margin 1 or more have 4 or more annotators. See item 23 in `DECISIONS.md`.
 - **Near-duplicates:** prompts with 5-word-shingle Jaccard similarity of at least 0.8 were reviewed by hand. 31 copies were excluded (`configs/near_duplicate_exclusions.csv`); 5 pairs sharing a template but asking different questions were kept. No MT-Bench prompt matched HelpSteer2.
 - **Edited versions of a pair** (perturbations, augmentation) belong to the original pair's partition.
 
