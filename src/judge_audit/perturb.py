@@ -109,15 +109,22 @@ def build_edits(pairs: pd.DataFrame, edit_ids: list[str]) -> pd.DataFrame:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--pairs", required=True)
-    p.add_argument("--ranking", required=True, help="h1h3_ranking.csv; edits go to ranks 1..edit-k per group")
+    p.add_argument("--source", choices=("h1h3", "audit"), default="h1h3",
+                   help="h1h3: ranks 1..edit-k per group; audit: every eligible audit pair (H4)")
+    p.add_argument("--pairs", default="data/processed/helpsteer_pairs.parquet")
+    p.add_argument("--ranking", default="data/splits/h1h3_ranking.csv")
+    p.add_argument("--manifest", default="data/splits/helpsteer_manifest.csv")
     p.add_argument("--edit-k", type=int, default=100)
     p.add_argument("--edits", nargs="+", default=list(EDITS))
     p.add_argument("--out", required=True)
     a = p.parse_args()
-    ranking = pd.read_csv(a.ranking, dtype={"margin_group": str})
-    chosen = ranking[ranking["rank"] <= a.edit_k].pair_id
     pairs = pd.read_parquet(a.pairs)
+    if a.source == "h1h3":
+        ranking = pd.read_csv(a.ranking, dtype={"margin_group": str})
+        chosen = set(ranking.loc[ranking["rank"] <= a.edit_k, "pair_id"])
+    else:
+        manifest = pd.read_csv(a.manifest, keep_default_na=False)
+        chosen = set(manifest.loc[manifest.partition == "audit", "pair_id"]) & set(pairs.loc[pairs.audit_eligible, "pair_id"])
     pairs = pairs[pairs.pair_id.isin(chosen)]
     edits = build_edits(pairs, a.edits)
     out = Path(a.out)
