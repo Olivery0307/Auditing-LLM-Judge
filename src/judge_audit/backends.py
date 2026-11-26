@@ -91,7 +91,8 @@ class TransformersBackend:
             chunk = runnable[start:start + self.batch_size]
             padded = self.tokenizer.pad({"input_ids": [encoded[i] for i in chunk]}, return_tensors="pt").to(self.device)
             with self.torch.no_grad():
-                logits = self.model(**padded).logits[:, -1, :].float()
+                # Only the last position's scores are needed; skipping the rest and the cache saves GPU memory.
+                logits = self.model(**padded, use_cache=False, logits_to_keep=1).logits[:, -1, :].float()
             logprobs = self.torch.log_softmax(logits, dim=-1)
             for row, i in enumerate(chunk):
                 results[i] = Score(float(logprobs[row, self.id_a]), float(logprobs[row, self.id_b]), len(encoded[i]))

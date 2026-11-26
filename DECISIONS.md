@@ -24,7 +24,7 @@ Data preparation, partitions and file formats are in [DATA.md](DATA.md). How to 
 | 2 | Pairs that receive edits | Ranks **1–100** per group (400 pairs) for H1–H3; all 412 eligible `audit` pairs for H4 | Edits multiply cost by about 4.8 | `perturb --edit-k`, `--source audit` |
 | 3 | Judgments per model | H1–H3: 9,210; `audit` with edits: 7,034; MT-Bench: 3,628 | From the dry runs with these defaults | — |
 | 4 | Model roster and precision | Qwen2.5-1.5B, 7B, 14B-Instruct, all bf16 | Plan asks for 4 sizes or a second family before claiming a size trend. 14B in bf16 needs the A100 (quota request pending) | `judge --model` |
-| 5 | Inference backend | `transformers` (verified on an L4: 0.11 s per judgment for 1.5B, 9.5 GB peak memory) | `vllm` is faster but **untested**; check it on a GPU before relying on it | `backends.py` |
+| 5 | Inference backend | `transformers` (verified on an L4: 0.11 s per judgment for 1.5B, 9.5 GB peak memory before scoring was limited to the last position) | `vllm` is faster but **untested**; check it on a GPU before relying on it. For the 14B on a 40 GB A100, start with `--batch-size 2`. The last-position change is **untested** on a GPU | `backends.py` |
 | 6 | Cost assumption | $0.75 per hour (L4, `g2-standard-4`) | Pass the real price with `analysis --dollars-per-hour` | `analysis.py` |
 
 ## Judging
